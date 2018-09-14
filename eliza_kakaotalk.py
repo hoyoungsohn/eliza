@@ -3,8 +3,9 @@ import random
 import re
 from collections import namedtuple
 
-log = logging.getLogger(__name__)
-
+''' for kakaotalk plus friend API '''
+import os
+from flask import Flask, request, jsonify
 
 class Key:
     def __init__(self, word, weight, decomps):
@@ -205,26 +206,65 @@ class Eliza:
     def final(self):
         return random.choice(self.finals)
 
-    def run(self):
-        print(self.initial())
-
+'''
+    def run(self, sent):
+#        print(self.initial())
         while True:
-            sent = input('> ')
-
             output = self.respond(sent)
             if output is None:
                 break
+            return output
+ #       print(self.final())
+'''
 
-            print(output)
+''' making ELIZA '''
+log = logging.getLogger(__name__)
+eliza_kakao = Flask(__name__)
+eliza = Eliza()
+eliza.load('doctor.txt')
 
-        print(self.final())
+### for kakaotalk plus friend API -- converting json ###
+@eliza_kakao.route('/keyboard', methods=['GET'])
+def Keyboard():
+    dataSend = {
+        "type": "buttons",
+        "buttons": ["I want to talk with you"]
+    }
+    return jsonify(dataSend)
 
+@eliza_kakao.route('/message', methods=['POST'])
+def Message():
+    content = request.json['content']
+    if content == "I want to talk with you":
+        dataSend = {
+            "message": {
+                "text": eliza.initial()
+            },
+            "keyboard": {
+                "type": "text"
+            }
+        }
+    else:
+        #response = content
+        response = eliza.respond(content)
+        if response is None:
+            dataSend = {
+                "message": {
+                    "text": eliza.final()
+                }
+            }
+        else:
+            dataSend = {
+                "message": {
+                    "text": response
+                },
+                "keyboard": {
+                    "type": "text"
+                }
+            }
+    return jsonify(dataSend)
 
-def main():
-    eliza = Eliza()
-    eliza.load('doctor.txt')
-    eliza.run()
-
+### main part ###
 if __name__ == '__main__':
     logging.basicConfig()
-    main()
+    eliza_kakao.run(host='0.0.0.0', port=6000)
